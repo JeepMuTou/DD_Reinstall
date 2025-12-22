@@ -2477,12 +2477,50 @@ find_main_disk() {
 
         # 改成先检测 /boot/efi /efi /boot 分区？
 
-        install_pkg lsblk
-        # 查找主硬盘时，优先查找 /boot 分区，再查找 / 分区
-        # lvm 显示的是 /dev/mapper/xxx-yyy，再用第二条命令得到sda
-        mapper=$(mount | awk '$3=="/boot" {print $1}' | grep . || mount | awk '$3=="/" {print $1}')
-        xda=$(lsblk -rn --inverse $mapper | grep -w disk | awk '{print $1}' | sort -u)
+        # install_pkg lsblk
+        # # 查找主硬盘时，优先查找 /boot 分区，再查找 / 分区
+        # # lvm 显示的是 /dev/mapper/xxx-yyy，再用第二条命令得到sda
+        # mapper=$(mount | awk '$3=="/boot" {print $1}' | grep . || mount | awk '$3=="/" {print $1}')
+        # xda=$(lsblk -rn --inverse $mapper | grep -w disk | awk '{print $1}' | sort -u)
 
+        # Mutou Mark:add step to select harddisk
+        install_pkg lsblk
+        
+        # --- 新增开始：列出硬盘并允许选择 ---
+        echo
+        echo "=================================================="
+        echo "Available Disks (当前可用硬盘):"
+        # 列出所有物理磁盘，显示名称、大小、型号
+        lsblk -d -o NAME,SIZE,TYPE,MODEL | grep -w disk
+        echo "=================================================="
+
+        # 保留原有的自动检测逻辑作为默认值
+        mapper=$(mount | awk '$3=="/boot" {print $1}' | grep . || mount | awk '$3=="/" {print $1}')
+        default_xda=$(lsblk -rn --inverse $mapper | grep -w disk | awk '{print $1}' | sort -u | head -n 1)
+
+        while true; do
+            # 提示用户输入
+            echo
+            read -r -p "Please input the target disk name (e.g. sda, vda). Default [$default_xda]: " input_disk
+            
+            # 如果用户直接回车，使用默认值
+            if [ -z "$input_disk" ]; then
+                xda=$default_xda
+                echo "Selected default disk: $xda"
+                break
+            fi
+
+            # 检查用户输入的硬盘是否存在
+            if lsblk -n -d -o NAME | grep -qw "$input_disk"; then
+                xda=$input_disk
+                echo "Selected disk: $xda"
+                break
+            else
+                echo "Error: Disk '$input_disk' not found. Please try again."
+            fi
+        done
+        # --- 新增结束 ---
+        
         # 检测主硬盘是否横跨多个磁盘
         os_across_disks_count=$(wc -l <<<"$xda")
         if [ $os_across_disks_count -eq 1 ]; then
