@@ -87,13 +87,13 @@
 国外服务器：
 
 ```bash
-curl -O https://raw.githubusercontent.com/bin456789/reinstall/main/reinstall.sh || wget -O ${_##*/} $_
+curl -O https://raw.githubusercontent.com/JeepMuTou/DD_Reinstall/main/reinstall.sh || wget -O ${_##*/} $_
 ```
 
 国内服务器：
 
 ```bash
-curl -O https://cnb.cool/bin456789/reinstall/-/git/raw/main/reinstall.sh || wget -O ${_##*/} $_
+curl -O https://cnb.cool/JeepMuTou/DD_Reinstall/-/git/raw/main/reinstall.sh || wget -O ${_##*/} $_
 ```
 
 ## 下载（当前系统是 <img width="20" height="20" src="https://blogs.windows.com/wp-content/uploads/prod/2022/09/cropped-Windows11IconTransparent512-32x32.png" /> Windows）
