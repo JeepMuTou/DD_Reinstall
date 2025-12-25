@@ -2483,6 +2483,44 @@ find_main_disk() {
         mapper=$(mount | awk '$3=="/boot" {print $1}' | grep . || mount | awk '$3=="/" {print $1}')
         xda=$(lsblk -rn --inverse $mapper | grep -w disk | awk '{print $1}' | sort -u)
 
+		# ================= 插入开始 =================
+		echo
+		echo "========== Hard Disk Selection =========="
+		# 显示硬盘列表 (NAME, SIZE, MODEL)
+		if command -v lsblk >/dev/null; then
+			lsblk -d -o NAME,SIZE,TYPE,MODEL | grep -E 'disk|raid'
+		else
+			fdisk -l | grep "Disk /dev/"
+		fi
+		echo "-----------------------------------------"
+		echo "Current default target: $xda"
+		echo "You have 30 seconds to manually select a disk."
+		echo "Press ENTER or wait to use default."
+		
+		# 读取输入，超时 30 秒 (-t 30)
+		if read -t 30 -p "Enter disk name (e.g. sdb) [$xda]: " user_disk; then
+			echo # 换行
+			# 去除可能输入的 /dev/ 前缀
+			user_disk=${user_disk#/dev/}
+			
+			if [ -n "$user_disk" ]; then
+				if [ -b "/dev/$user_disk" ]; then
+					echo "Manual selection: $user_disk"
+					xda="$user_disk"
+				else
+					echo "Invalid disk: $user_disk. Keeping default: $xda"
+				fi
+			else
+				echo "No input. Keeping default: $xda"
+			fi
+		else
+			echo # 换行
+			echo "Timeout. Keeping default: $xda"
+		fi
+		echo "========================================="
+		echo
+		# ================= 插入结束 =================
+
         # 检测主硬盘是否横跨多个磁盘
         os_across_disks_count=$(wc -l <<<"$xda")
         if [ $os_across_disks_count -eq 1 ]; then
