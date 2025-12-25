@@ -2451,58 +2451,37 @@ save_password() {
 }
 
 # 记录主硬盘
-# 记录主硬盘
 find_main_disk() {
     if [ -n "$main_disk" ]; then
         return
     fi
 
     if is_in_windows; then
-        # ... (Windows 部分代码保持不变) ...
+        # TODO:
+        # 已测试 vista
+        # 测试 软raid
+        # 测试 动态磁盘
+
         # diskpart 命令结果
+        # 磁盘 ID: E5FDE61C
+        # 磁盘 ID: {92CF6564-9B2E-4348-A3BD-D84E3507EBD7}
         main_disk=$(printf "%s\n%s" "select volume $c" "uniqueid disk" | diskpart |
             tail -1 | awk '{print $NF}' | sed 's,[{}],,g')
     else
-        # 安装 lsblk 以确保可以使用
+        # centos7下测试     lsblk --inverse $mapper | grep -w disk     grub2-probe -t disk /
+        # 跨硬盘btrfs       只显示第一个硬盘                            显示两个硬盘
+        # 跨硬盘lvm         显示两个硬盘                                显示/dev/mapper/centos-root
+        # 跨硬盘软raid      显示两个硬盘                                显示/dev/md127
+
+        # 还有 findmnt
+
+        # 改成先检测 /boot/efi /efi /boot 分区？
+
         install_pkg lsblk
-        
         # 查找主硬盘时，优先查找 /boot 分区，再查找 / 分区
+        # lvm 显示的是 /dev/mapper/xxx-yyy，再用第二条命令得到sda
         mapper=$(mount | awk '$3=="/boot" {print $1}' | grep . || mount | awk '$3=="/" {print $1}')
         xda=$(lsblk -rn --inverse $mapper | grep -w disk | awk '{print $1}' | sort -u)
-
-        # ==================== 修改开始 ====================
-        # 显示所有硬盘信息
-        echo "--------------------------------------------------------"
-        echo "Detected Disks / 检测到的硬盘:"
-        # 显示 名称, 大小, 类型, 型号
-        lsblk -d -o NAME,SIZE,TYPE,MODEL | grep -v "loop"
-        echo "--------------------------------------------------------"
-        
-        # 交互式选择，设置 30 秒超时
-        echo "Default detected disk: $xda"
-        echo "You have 30 seconds to choose a different disk."
-        echo "Press ENTER or wait to use default ($xda)."
-        echo "请输入目标硬盘名称 (例如 sdb, nvme0n1) 或等待 30 秒以使用默认值:"
-        
-        if read -t 30 -p "Disk Name > " input_disk; then
-            # 用户按了回车或者输入了内容
-            if [ -n "$input_disk" ]; then
-                # 检查输入的设备是否存在
-                if [ -b "/dev/$input_disk" ]; then
-                    echo -e "\nSwitching target disk to: $input_disk"
-                    xda="$input_disk"
-                else
-                    echo -e "\nDevice /dev/$input_disk not found! Fallback to default: $xda"
-                fi
-            else
-                echo -e "\nUsing default: $xda"
-            fi
-        else
-            # 超时
-            echo -e "\nTimeout. Using default: $xda"
-        fi
-        echo "--------------------------------------------------------"
-        # ==================== 修改结束 ====================
 
         # 检测主硬盘是否横跨多个磁盘
         os_across_disks_count=$(wc -l <<<"$xda")
@@ -2511,6 +2490,18 @@ find_main_disk() {
         else
             error_and_exit "OS across $os_across_disks_count disk: $xda"
         fi
+
+        # 可以用 dd 找出 guid?
+
+        # centos7 blkid lsblk 不显示 PTUUID
+        # centos7 sfdisk 不显示 Disk identifier
+        # alpine blkid 不显示 gpt 分区表的 PTUUID
+        # 因此用 fdisk
+
+        # Disk identifier: 0x36778223                                  # gnu fdisk + mbr
+        # Disk identifier: D6B17C1A-FA1E-40A1-BDCB-0278A3ED9CFC        # gnu fdisk + gpt
+        # Disk identifier (GUID): d6b17c1a-fa1e-40a1-bdcb-0278a3ed9cfc # busybox fdisk + gpt
+        # 不显示 Disk identifier                                        # busybox fdisk + mbr
 
         # 获取 xda 的 id
         install_pkg fdisk
